@@ -16,7 +16,7 @@ export const getFontsData = (): Font => ({
     fallback: false,
     data: 'https://fonts.gstatic.com/s/pinyonscript/v22/6xKpdSJbL9-e9LuoeQiDRQR8aOLQO4bhiDY.ttf',
   },
-  NotoSerifJP: {
+  'NotoSerifJP-Regular': {
     fallback: false,
     data: 'https://fonts.gstatic.com/s/notoserifjp/v30/xn71YHs72GKoTvER4Gn3b5eMRtWGkp6o7MjQ2bwxOubAILO5wBCU.ttf',
   },
@@ -111,6 +111,15 @@ export const generatePDF = async (currentRef: Designer | Form | Viewer | null) =
   const font = getFontsData();
 
   try {
+    // Check if we need to use exportPdf method for multi-page Designer PDFs
+    if (currentRef instanceof Designer && typeof (currentRef as any).exportPdf === 'function') {
+      const pdf = await (currentRef as any).exportPdf();
+      const blob = new Blob([pdf], { type: 'application/pdf' });
+      window.open(URL.createObjectURL(blob));
+      return;
+    }
+    
+    // Default generation method
     const pdf = await generate({
       template,
       inputs,

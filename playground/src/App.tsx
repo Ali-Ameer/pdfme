@@ -2,7 +2,7 @@ import { Routes, Route, useSearchParams } from "react-router-dom";
 import { ToastContainer } from 'react-toastify';
 import Designer from "./routes/Designer";
 import FormAndViewer from "./routes/FormAndViewer";
-import Templates from "./routes/Templates";
+import MultiPageDesigner from "./routes/MultiPageDesigner";
 import Header from "./components/Header";
 
 export default function App() {
@@ -11,12 +11,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {!isEmbedded && <Header />}
-      <Routes>
+      {!isEmbedded && <Header />}      <Routes>
         <Route path={"/"} element={<Designer />} />
         <Route path={"/designer"} element={<Designer />} />
         <Route path="/form-viewer" element={<FormAndViewer />} />
-        <Route path="/templates" element={<Templates isEmbedded={isEmbedded} />} />
+        <Route path="/multi-page-designer" element={<MultiPageDesigner />} />
       </Routes>
       <ToastContainer />
     </div>

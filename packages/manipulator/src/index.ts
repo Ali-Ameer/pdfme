@@ -1,17 +1,112 @@
 import { PDFDocument, RotationTypes } from '@pdfme/pdf-lib';
+import { generate } from '@pdfme/generator';
+import type { Template } from '@pdfme/common';
 
-const merge = async (pdfs: (ArrayBuffer | Uint8Array)[]): Promise<Uint8Array> => {
-  if (!pdfs.length) {
-    throw new Error('[@pdfme/manipulator] At least one PDF is required for merging');
+export interface MergeItem {
+  type: 'pdf' | 'template';
+  data: ArrayBuffer | Uint8Array | Template;
+  pages?: number[]; // For PDF: specific pages to include
+  inputs?: Record<string, unknown>[]; // For template: input data
+}
+
+export interface MergeOptions {
+  position?: 'start' | 'end' | number; // Position to insert
+}
+
+const mergeAdvanced = async (
+  items: MergeItem[],
+  options: MergeOptions = {},
+): Promise<Uint8Array> => {
+  if (!items.length) {
+    throw new Error('[@pdfme/manipulator] At least one item is required for merging');
   }
 
+  const { position = 'end' } = options;
   const mergedPdf = await PDFDocument.create();
-  for (const buffer of pdfs) {
-    const srcDoc = await PDFDocument.load(buffer);
-    const copiedPages = await mergedPdf.copyPages(srcDoc, srcDoc.getPageIndices());
-    copiedPages.forEach((page) => mergedPdf.addPage(page));
+  const allPages: any[] = [];
+
+  // Process each item and collect pages
+  for (const item of items) {
+    if (item.type === 'pdf') {
+      const pdfData = item.data as ArrayBuffer | Uint8Array;
+      const srcDoc = await PDFDocument.load(pdfData);
+      const pageIndices = item.pages || srcDoc.getPageIndices();
+
+      // Validate page indices
+      const maxPageIndex = srcDoc.getPageCount() - 1;
+      if (pageIndices.some((idx) => idx < 0 || idx > maxPageIndex)) {
+        throw new Error(
+          `[@pdfme/manipulator] Invalid page index. Pages must be between 0 and ${maxPageIndex}`,
+        );
+      }
+
+      const copiedPages = await mergedPdf.copyPages(srcDoc, pageIndices);
+      allPages.push(...copiedPages);
+    } else if (item.type === 'template') {
+      const template = item.data as Template;
+      const inputs = item.inputs || [{}];
+
+      // Generate PDF from template
+      const templatePdf = await generate({ template, inputs });
+      const templateDoc = await PDFDocument.load(templatePdf);
+      const copiedPages = await mergedPdf.copyPages(templateDoc, templateDoc.getPageIndices());
+      allPages.push(...copiedPages);
+    }
   }
+
+  // Add pages based on position
+  if (position === 'start') {
+    // Insert at beginning
+    allPages.forEach((page) => mergedPdf.addPage(page));
+  } else if (position === 'end') {
+    // Add at end (default behavior)
+    allPages.forEach((page) => mergedPdf.addPage(page));
+  } else if (typeof position === 'number') {
+    // Insert at specific index
+    const currentPageCount = mergedPdf.getPageCount();
+    const insertIndex = Math.min(Math.max(0, position), currentPageCount);
+
+    allPages.forEach((page, index) => {
+      mergedPdf.insertPage(insertIndex + index, page);
+    });
+  }
+
   return mergedPdf.save();
+};
+
+const mergeWithTemplates = async (
+  basePdf: ArrayBuffer | Uint8Array,
+  templates: Array<{
+    template: Template;
+    inputs?: Record<string, unknown>[];
+    position?: 'start' | 'end' | number;
+  }>,
+): Promise<Uint8Array> => {
+  if (!templates.length) {
+    throw new Error('[@pdfme/manipulator] At least one template is required');
+  }
+
+  let currentPdf = basePdf;
+
+  for (const { template, inputs = [{}], position = 'end' } of templates) {
+    const items: MergeItem[] = [
+      { type: 'pdf', data: currentPdf },
+      { type: 'template', data: template, inputs },
+    ];
+
+    currentPdf = await mergeAdvanced(items, { position });
+  }
+
+  return currentPdf;
+};
+
+// Enhanced original merge function
+const merge = async (
+  pdfs: (ArrayBuffer | Uint8Array)[],
+  options: MergeOptions = {},
+): Promise<Uint8Array> => {
+  const items: MergeItem[] = pdfs?.map((pdf) => ({ type: 'pdf', data: pdf }));
+  return mergeAdvanced(items, options);
 };
 
 const split = async (
@@ -143,7 +238,7 @@ const rotate = async (
     }
   }
 
-  const pagesToRotate = pageNumbers || pages.map((_, i) => i);
+  const pagesToRotate = pageNumbers || pages?.map((_, i) => i);
   pagesToRotate.forEach((pageNum) => {
     const page = pages[pageNum];
     if (page) {
@@ -237,4 +332,14 @@ const organize = async (
   return currentPdf.save();
 };
 
-export { merge, split, remove, insert, rotate, move, organize };
+export {
+  merge,
+  mergeAdvanced,
+  mergeWithTemplates,
+  split,
+  remove,
+  insert,
+  rotate,
+  move,
+  organize,
+};

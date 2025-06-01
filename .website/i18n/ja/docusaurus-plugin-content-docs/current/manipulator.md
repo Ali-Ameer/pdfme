@@ -11,14 +11,74 @@ npm install @pdfme/manipulator
 ## 機能
 
 ### merge（結合）
-複数のPDFファイルを1つのPDFに結合します。
+複数のPDFファイルを1つのPDFに結合します。位置指定が可能です。
 
 ```ts
 import { merge } from '@pdfme/manipulator';
 
 const pdf1 = new ArrayBuffer(...); // 1つ目のPDF
 const pdf2 = new ArrayBuffer(...); // 2つ目のPDF
+
+// 基本的な結合（末尾に追加）
 const merged = await merge([pdf1, pdf2]);
+
+// 先頭に結合
+const mergedAtStart = await merge([pdf1, pdf2], { position: 'start' });
+
+// 特定の位置に結合
+const mergedAtIndex = await merge([pdf1, pdf2], { position: 1 });
+```
+
+### mergeAdvanced（高度な結合）
+PDFとテンプレートを組み合わせて1つのPDFに結合します。
+
+```ts
+import { mergeAdvanced, MergeItem } from '@pdfme/manipulator';
+
+const pdf1 = new ArrayBuffer(...); // PDFファイル
+const template = { 
+  basePdf: BLANK_PDF, 
+  schemas: [/* テンプレート定義 */] 
+};
+
+const items: MergeItem[] = [
+  { type: 'pdf', data: pdf1, pages: [0, 2] }, // 1ページ目と3ページ目のみ
+  { 
+    type: 'template', 
+    data: template, 
+    inputs: [{ field1: 'value1' }] 
+  }
+];
+
+// 末尾に結合（デフォルト）
+const result = await mergeAdvanced(items);
+
+// 特定の位置に結合
+const resultAtIndex = await mergeAdvanced(items, { position: 1 });
+```
+
+### mergeWithTemplates（テンプレートとの結合）
+ベースPDFに複数のテンプレートを指定された位置に結合します。
+
+```ts
+import { mergeWithTemplates } from '@pdfme/manipulator';
+
+const basePdf = new ArrayBuffer(...);
+const template1 = { /* テンプレート定義 */ };
+const template2 = { /* テンプレート定義 */ };
+
+const result = await mergeWithTemplates(basePdf, [
+  { 
+    template: template1, 
+    inputs: [{ title: 'ページ1' }], 
+    position: 0 // 先頭に挿入
+  },
+  { 
+    template: template2, 
+    inputs: [{ title: 'ページ2' }], 
+    position: 'end' // 末尾に追加
+  }
+]);
 ```
 
 ### split（分割）

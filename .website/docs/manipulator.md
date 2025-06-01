@@ -11,14 +11,74 @@ npm install @pdfme/manipulator
 ## Features
 
 ### merge
-Combines multiple PDF files into a single PDF.
+Combines multiple PDF files into a single PDF with optional position control.
 
 ```ts
 import { merge } from '@pdfme/manipulator';
 
 const pdf1 = new ArrayBuffer(...); // First PDF
 const pdf2 = new ArrayBuffer(...); // Second PDF
+
+// Basic merge (at end)
 const merged = await merge([pdf1, pdf2]);
+
+// Merge at start
+const mergedAtStart = await merge([pdf1, pdf2], { position: 'start' });
+
+// Merge at specific index
+const mergedAtIndex = await merge([pdf1, pdf2], { position: 1 });
+```
+
+### mergeAdvanced
+Combines multiple PDFs and templates into a single PDF with full control over positioning.
+
+```ts
+import { mergeAdvanced, MergeItem } from '@pdfme/manipulator';
+
+const pdf1 = new ArrayBuffer(...); // PDF file
+const template = { 
+  basePdf: BLANK_PDF, 
+  schemas: [/* template definition */] 
+};
+
+const items: MergeItem[] = [
+  { type: 'pdf', data: pdf1, pages: [0, 2] }, // Include only pages 1 and 3
+  { 
+    type: 'template', 
+    data: template, 
+    inputs: [{ field1: 'value1' }] 
+  }
+];
+
+// Merge at end (default)
+const result = await mergeAdvanced(items);
+
+// Merge at specific position
+const resultAtIndex = await mergeAdvanced(items, { position: 1 });
+```
+
+### mergeWithTemplates
+Merges a base PDF with multiple templates at specified positions.
+
+```ts
+import { mergeWithTemplates } from '@pdfme/manipulator';
+
+const basePdf = new ArrayBuffer(...);
+const template1 = { /* template definition */ };
+const template2 = { /* template definition */ };
+
+const result = await mergeWithTemplates(basePdf, [
+  { 
+    template: template1, 
+    inputs: [{ title: 'Page 1' }], 
+    position: 0 // Insert at beginning
+  },
+  { 
+    template: template2, 
+    inputs: [{ title: 'Page 2' }], 
+    position: 'end' // Add at end
+  }
+]);
 ```
 
 ### split
@@ -124,6 +184,17 @@ type OrganizeAction =
   | { type: 'replace'; data: { pdf: PDFInput; position: number } }
   | { type: 'rotate'; data: { position: number; degrees: 0 | 90 | 180 | 270 | 360 } }
   | { type: 'move'; data: { from: number; to: number } };
+
+interface MergeItem {
+  type: 'pdf' | 'template';
+  data: ArrayBuffer | Uint8Array | Template;
+  pages?: number[]; // For PDF: specific pages to include
+  inputs?: Record<string, unknown>[]; // For template: input data
+}
+
+interface MergeOptions {
+  position?: 'start' | 'end' | number; // Position to insert
+}
 ```
 
 ## Contact
